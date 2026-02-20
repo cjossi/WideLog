@@ -4,3 +4,10 @@
 # Data
 data/
 *.csv
+*.duckdb
+*.parquet
+
+# Python
+.pdm_env/
+__pycache__/
+config.yaml
