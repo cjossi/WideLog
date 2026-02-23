@@ -1,1 +1,1 @@
-print("Hello, World!")
+__all__ = []
