@@ -2,11 +2,17 @@
 from __future__ import annotations  # Annotations to string, to not evaluate them up front
 from pathlib import Path
 import polars as pl
+import re
 
 from .ingest import csv_to_parquet
 
 # Local imports
 from .config import load_config
+
+# Exemple of filename: SNR123_TimelineStage_TestType.csv
+FILENAME_RE = FILENAME_RE = re.compile(
+    r"^SNR(?P<snr_id>\d+)_(?P<timeline_stage>[^_]+)_(?P<test_type>[^.]+)\.csv$"
+)
 
 def main() -> None:
     # Load configuration from the config.yaml file
@@ -22,28 +28,28 @@ def main() -> None:
     for p in root.rglob("*.csv"):
         print(f"Processing {p}")
 
-        # Get the relative path and parts
-        rel = p.relative_to(root)
-        parts = rel.parts
+        # Extract information from the filename using the regular expression
+        m=FILENAME_RE.match(p.name)
 
-        # We expect at least "object_id/timeline_stage/test_type/test_name.csv"
-        if len(parts) < 4:  
-            print(f"Skipping {p} because it doesn't have enough parts")
+        if not m:
+            print(f"Skipping {p} because it doesn't match the expected filename pattern")
             continue
 
+        # Append a row to the list of rows with the extracted information and file details
         rows.append(
             {
-                "object_id": str(parts[0]),
-                "timeline_stage": str(parts[1]),
-                "test_type": str(parts[2]),
-                "test_name": p.stem,
+                "object_id": m.group("snr_id"),
+                "timeline_stage": m.group("timeline_stage"),
+                "test_type": m.group("test_type"),
                 "file_path": str(p),
+                "folder": p.parent.name,
+                "file_name": p.name,
             }
         )
         
         # Convert the list of rows to a Polars DataFrame and write it to a Parquet file
         df = pl.DataFrame(rows)
-        out_path = out_dir / "index.parquet"
+        out_path = out_dir / "tests_index.parquet"
         df.write_parquet(out_path)
 
         print(f"Wrote: {out_path}")
