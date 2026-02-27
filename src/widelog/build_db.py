@@ -37,31 +37,48 @@ def main() -> None:
 
     print("Database created at:", db_path)
 
+    # Create 3 views : 
+    # - objects : 1 line per snr (main + meta)
+    # - imu_files : all IMU indexed files (tests_index)
+    # - objects_with_imu : join of the two, with one line per snr and
+    # main.record_id == meta.snr_id == test_index.snr_id
+
     con.execute("""
         CREATE OR REPLACE VIEW objects AS
         SELECT
-            me.id       AS object_id,
-            me.snr_id   AS snr_id,
-            m.*,
-            me.*
-        FROM meta me
-        LEFT JOIN main m
-            ON m.patient_snr_id = me.snr_id;
+            meta.snr_id AS snr_id,
+            main.*,
+            meta.*
+        FROM meta
+        LEFT JOIN main 
+            ON main.record_id = meta.snr_id
     """)
 
     con.execute("""
-        CREATE OR REPLACE VIEW objects_with_tests AS
+        CREATE OR REPLACE VIEW imu_files AS
         SELECT
-            me.id       AS object_id,
-            me.snr_id   AS snr_id,
-            ti.timeline_stage,
-            ti.test_type,
-            ti.test_name
-        FROM meta me
-        LEFT JOIN main m
-            ON m.patient_snr_id = me.snr_id
-        LEFT JOIN tests_index ti
-            ON ti.object_id = me.id;
+            snr_id,
+            timeline_stage,
+            test_type,
+            file_path,
+            folder,
+            file_name
+        FROM tests_index;
+    """)
+
+    con.execute("""
+        CREATE OR REPLACE VIEW objects_with_imu AS
+        SELECT
+            meta.snr_id AS snr_id,
+            main.record_id,
+            tests_index.timeline_stage,
+            tests_index.test_type,
+            tests_index.file_path
+        FROM meta
+        LEFT JOIN main
+            ON main.record_id = meta.snr_id
+        LEFT JOIN tests_index
+            ON tests_index.snr_id = meta.snr_id;
     """)
 
     con.close()

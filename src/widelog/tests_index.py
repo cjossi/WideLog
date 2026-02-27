@@ -38,7 +38,7 @@ def main() -> None:
         # Append a row to the list of rows with the extracted information and file details
         rows.append(
             {
-                "object_id": m.group("snr_id"),
+                "snr_id": m.group("snr_id"),
                 "timeline_stage": m.group("timeline_stage"),
                 "test_type": m.group("test_type"),
                 "file_path": str(p),
