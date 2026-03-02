@@ -135,6 +135,16 @@ def get_imu_csv_path(snr_id: str, timeline_stage: str, test_type: str) -> tuple[
 
 # This function merges multiple CSV files into a single CSV file. From a list of paths
 def merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv: str) -> None:
+    # Reorder le file_infos
+    STAGE_ORDER = {
+        "admission": 0,
+        "discharge": 1,
+        "FU1": 2,
+        "FU2": 3,
+    }
+    file_infos.sort(key=lambda x: (STAGE_ORDER.get(x[1], 999), x[2])) # Sort by timeline_stage using the defined order and then by test_type alphabetically
+
+
     # Read all CSV files into a single Polars DataFrame
     # Dataframe used here instead of lazyframe because we want to merge all files into one csv, and the number of files is not expected to be very large (max 8 files for one snr_id)
     dfs = []
@@ -159,6 +169,7 @@ def merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv:
             df = df.with_columns([
                 pl.lit(timeline_stage).alias("timeline_stage")
             ])
+            
 
         elif case == 3:
             df = df.with_columns([
@@ -199,6 +210,6 @@ def imu_csv_export(snr_id: str, timeline_stage: str, test_type: str) -> None:
 
 if __name__ == "__main__":    # Example usage
     # Get one file for id 193, for all timeline_stage and test_type "gait"
-    imu_csv_export(snr_id="193", timeline_stage="", test_type="gait")
+    imu_csv_export(snr_id="193", timeline_stage="", test_type="")
 
     
