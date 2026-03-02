@@ -208,7 +208,7 @@ def choose_path_name(snr_id: str, timeline_stage: str, test_type: str, case: int
 
 
 # This function retrieves the file paths of the IMU CSV files based on the provided parameters and then merges them into a single CSV file.
-def imu_csv_export(snr_id: str, timeline_stage: str, test_type: str) -> None:
+def imu_csv_export(snr_id: str, timeline_stage: str = "", test_type: str = "") -> None:
     cfg = load_config()
     case = 0
     file_infos = []
@@ -224,6 +224,6 @@ def imu_csv_export(snr_id: str, timeline_stage: str, test_type: str) -> None:
 
 if __name__ == "__main__":    # Example usage
     # Get one file for id 193, for all timeline_stage and test_type "gait"
-    imu_csv_export(snr_id="193", timeline_stage="", test_type="")
+    imu_csv_export(snr_id="193")
 
     
