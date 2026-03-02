@@ -193,17 +193,31 @@ def merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv:
     merged_df.write_csv(out_csv)
     print(f"Merged {len(file_infos)} files into {out_csv} (case {case})")
 
+def choose_path_name(snr_id: str, timeline_stage: str, test_type: str, case: int) -> str:
+
+    if case == 1:
+        return f"SNR{snr_id}_{timeline_stage}_{test_type}.csv"
+    elif case == 2:        
+        return f"SNR{snr_id}_all_{test_type}.csv"
+    elif case == 3:        
+        return f"SNR{snr_id}_{timeline_stage}_all.csv"
+    elif case == 4:
+        return f"SNR{snr_id}.csv"
+    else:
+        raise ValueError("Invalid case number")
+
+
 # This function retrieves the file paths of the IMU CSV files based on the provided parameters and then merges them into a single CSV file.
 def imu_csv_export(snr_id: str, timeline_stage: str, test_type: str) -> None:
     cfg = load_config()
-    out_csv = f"SNR{snr_id}_{timeline_stage}_{test_type}.csv"
-    out_path = str(Path(cfg.out_dir) / out_csv)
     case = 0
     file_infos = []
 
     # Get the file paths of the IMU CSV files based on the provided parameters
     file_infos, case = get_imu_csv_path(snr_id=snr_id, timeline_stage=timeline_stage, test_type=test_type)
-    print(file_infos)
+
+    out_csv = choose_path_name(snr_id, timeline_stage, test_type, case)
+    out_path = str(Path(cfg.out_dir) / out_csv)
 
     # Merge all files into one parquet file from the list of file paths and write it to the output path
     merge_csv_files(file_infos, case, out_path)
