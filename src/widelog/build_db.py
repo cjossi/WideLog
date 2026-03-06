@@ -4,7 +4,7 @@ from pathlib import Path
 import duckdb
 
 # Local imports
-from .config import load_config
+from widelog.config import load_config
 
 def build_db() -> None:
     # Load configuration from the config.yaml file

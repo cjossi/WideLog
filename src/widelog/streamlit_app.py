@@ -1,3 +1,4 @@
+# Import
 from __future__ import annotations
 from pathlib import Path
 import streamlit as st
@@ -6,6 +7,8 @@ import duckdb
 # Local imports
 from widelog.config import load_config
 from widelog.imu_csv_export import imu_csv_export
+from widelog.source_snapshot import sources_changed
+from widelog.refresh_db import refresh_db
 
 st.set_page_config(page_title="WideLog IMU CSV Export", layout="centered")
 
@@ -16,6 +19,25 @@ def build_output_path(out_csv: str) -> Path:
 def main():
     st.title("WideLog IMU CSV Export (MVP)")
 
+    # Check if source data has changed since last snapshot
+    changed, _, _ = sources_changed()
+
+    if changed:
+        st.warning("Source data has changed since last database update. A refresh is recommended.")
+
+        if st.button("Refresh Database"):
+            with st.spinner("Refreshing... This may take a few minutes."):
+                try:
+                    refresh_db()
+                    st.success("Database refreshed successfully.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error occurred while refreshing database: {e}")
+
+    else:
+        st.success("Database is up to date.")
+
+    # Connect to the DuckDB database
     cfg = load_config()
     con = duckdb.connect(cfg.duckdb_path, read_only = True)
     out_csv = ""
@@ -69,6 +91,9 @@ def main():
             AND test_type IS NOT NULL
         ORDER BY test_type
     """, [snr_id]).fetchall()
+
+    # Close the database connection
+    con.close()
 
     stages = [s[0] for s in stages]
     types = [t[0] for t in types]

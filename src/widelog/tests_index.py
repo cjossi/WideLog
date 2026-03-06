@@ -4,10 +4,8 @@ from pathlib import Path
 import polars as pl
 import re
 
-from .ingest import csv_to_parquet
-
 # Local imports
-from .config import load_config
+from widelog.config import load_config
 
 # Exemple of filename: SNR123_TimelineStage_TestType.csv
 FILENAME_RE = FILENAME_RE = re.compile(
@@ -52,13 +50,13 @@ def ingest_tests_index() -> None:
         out_path = out_dir / "tests_index.parquet"
         df.write_parquet(out_path)
 
-        print(f"Wrote: {out_path}")
-        print(f"Rows: {df.height}")
+        #print(f"Wrote: {out_path}")
+        #print(f"Rows: {df.height}")
 
         # Print a sample of the rows if there are any
-        if df.height > 0:
-            print("Sample rows:")
-            print(df.head(5))
+        #if df.height > 0:
+        #   print("Sample rows:")
+        #   print(df.head(5))
 
 if __name__ == "__main__":
     ingest_tests_index()

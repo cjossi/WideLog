@@ -1,10 +1,11 @@
+# Import
 from __future__ import annotations
 from pathlib import Path
 import polars as pl
 import duckdb
 
 # Local imports
-from .config import load_config
+from widelog.config import load_config
 
 NULLS = ["", "NA", "null", "NULL", "not possible"]
 
@@ -130,6 +131,9 @@ def get_imu_csv_path(snr_id: str, timeline_stage: str, test_type: str) -> tuple[
     else :
         raise ValueError("Case 4: Invalid combination of parameters. Please provide either both timeline_stage and test_type, or only test_type.")    
     
+    # Close the database connection
+    con.close()
+
     # Return the files paths
     return file_infos, case
 

@@ -1,9 +1,10 @@
 # Import
+from __future__ import annotations
 from pathlib import Path
 import polars as pl
 
 # Local imports
-from .config import load_config
+from widelog.config import load_config
 
 NULL_VALUES = ["", "NA", "null", "NULL", "not possible"]
 
