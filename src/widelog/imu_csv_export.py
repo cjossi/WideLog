@@ -165,6 +165,11 @@ def merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv:
             null_values=NULLS
         )
         # Check if we need to have the timeline_stage and/or test_type columns in the merged csv, depending on the case
+        if case == 1:
+            df.write_csv(out_csv) # If we have all the information, we can just write the csv without merging
+            print(f"Case {case}: Only one file to merge, written directly to {out_csv}")
+            return
+        
         if case == 2:
             df = df.with_columns([
                 pl.lit(timeline_stage).alias("timeline_stage")
@@ -194,21 +199,24 @@ def merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv:
     print(f"Merged {len(file_infos)} files into {out_csv} (case {case})")
 
 def choose_path_name(snr_id: str, timeline_stage: str, test_type: str, case: int) -> str:
-
     if case == 1:
         return f"SNR{snr_id}_{timeline_stage}_{test_type}.csv"
+    
     elif case == 2:        
         return f"SNR{snr_id}_all_{test_type}.csv"
-    elif case == 3:        
+    
+    elif case == 3:       
         return f"SNR{snr_id}_{timeline_stage}_all.csv"
+    
     elif case == 4:
         return f"SNR{snr_id}.csv"
+    
     else:
         raise ValueError("Invalid case number")
 
 
 # This function retrieves the file paths of the IMU CSV files based on the provided parameters and then merges them into a single CSV file.
-def imu_csv_export(snr_id: str, timeline_stage: str = "", test_type: str = "") -> None:
+def imu_csv_export(snr_id: str, timeline_stage: str = "", test_type: str = "") -> str:
     cfg = load_config()
     case = 0
     file_infos = []
@@ -221,9 +229,10 @@ def imu_csv_export(snr_id: str, timeline_stage: str = "", test_type: str = "") -
 
     # Merge all files into one parquet file from the list of file paths and write it to the output path
     merge_csv_files(file_infos, case, out_path)
+    return out_csv
 
 if __name__ == "__main__":    # Example usage
     # Get one file for id 193, for all timeline_stage and test_type "gait"
-    imu_csv_export(snr_id="193")
+    out_csv = imu_csv_export(snr_id="193", timeline_stage="admission", test_type="gait")
 
     
