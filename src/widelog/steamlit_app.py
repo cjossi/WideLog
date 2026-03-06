@@ -52,7 +52,14 @@ def main():
         FROM objects_with_imu
         WHERE snr_id = ?
             AND timeline_stage IS NOT NULL
-        ORDER BY timeline_stage
+        ORDER BY
+        CASE timeline_stage
+            WHEN 'admission' THEN 1
+            WHEN 'discharge' THEN 2
+            WHEN 'FU1' THEN 3
+            WHEN 'FU2' THEN 4
+            ELSE 99
+        END
     """, [snr_id]).fetchall()
 
     types = con.execute("""
