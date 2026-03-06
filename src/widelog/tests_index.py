@@ -14,7 +14,7 @@ FILENAME_RE = FILENAME_RE = re.compile(
     r"^SNR(?P<snr_id>\d+)_(?P<timeline_stage>[^_]+)_(?P<test_type>[^.]+)\.csv$"
 )
 
-def main() -> None:
+def ingest_tests_index() -> None:
     # Load configuration from the config.yaml file
     cfg = load_config()
 
@@ -61,4 +61,4 @@ def main() -> None:
             print(df.head(5))
 
 if __name__ == "__main__":
-    main()
+    ingest_tests_index()

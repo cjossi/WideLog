@@ -6,7 +6,7 @@ import duckdb
 # Local imports
 from .config import load_config
 
-def main() -> None:
+def build_db() -> None:
     # Load configuration from the config.yaml file
     cfg = load_config()
 
@@ -87,4 +87,4 @@ def main() -> None:
     print("View: objects_with_tests")
 
 if __name__ == "__main__":
-    main()
+    build_db()

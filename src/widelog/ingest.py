@@ -22,7 +22,7 @@ def csv_to_parquet(csv_path: str, out_path: Path):
     # Write the DataFrame to a Parquet file
     lf.sink_parquet(out_path)
 
-def main():
+def ingest_csv_to_parquet():
     # Load configuration from the config.yaml file
     cfg = load_config()
 
@@ -41,4 +41,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ingest_csv_to_parquet()
