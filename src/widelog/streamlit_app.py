@@ -3,12 +3,24 @@ from __future__ import annotations
 from pathlib import Path
 import streamlit as st
 import duckdb
+import shutil
 
 # Local imports
 from widelog.config import load_config
 from widelog.imu_csv_export import imu_csv_export
 from widelog.source_snapshot import sources_changed
 from widelog.refresh_db import refresh_db
+from widelog.query_service import (
+    snr_exists,
+    get_available_stages,
+    get_available_test_types,
+    get_imu_files,
+    get_total_patients,
+    get_total_patients_with_imu,
+    get_timeline_stages_distribution,
+    get_test_types_distribution,
+    get_connection
+)
 
 st.set_page_config(page_title="WideLog IMU CSV Export", layout="centered")
 
@@ -16,9 +28,91 @@ def build_output_path(out_csv: str) -> Path:
     cfg = load_config()
     return Path(cfg.out_dir) / out_csv
 
+# Direct export button function
+def export_main_button_csv():
+    if st.button("Export Main CSV"):
+        cfg = load_config()
+        csv_main_path = Path(cfg.csv_main)
+        out_path = build_output_path(f"SNR_main.csv")
+
+        try:
+            with st.spinner("Exporting..."):
+                shutil.copyfile(csv_main_path, out_path)
+            
+            if out_path.exists():
+                st.success(f"Exported successfully: {out_path}")
+
+                st.download_button(
+                    label="Download Main CSV",
+                    data=out_path.read_bytes(),
+                    file_name=out_path.name,
+                    mime="text/csv",
+                )
+            else:
+                st.error(f"Export failed. CSV not found at expected path: {out_path}")
+            
+        except Exception as e:
+            st.error(str(e))
+
+# Direct export meta button
+def export_meta_button_csv():
+    if st.button("Export Meta CSV"):
+        cfg = load_config()
+        csv_meta_path = Path(cfg.csv_meta)
+        out_path = build_output_path(f"SNR_meta.csv")
+
+        try:
+            with st.spinner("Exporting..."):
+                shutil.copyfile(csv_meta_path, out_path)
+            
+            if out_path.exists():
+                st.success(f"Exported successfully: {out_path}")
+
+                st.download_button(
+                    label="Download Meta CSV",
+                    data=out_path.read_bytes(),
+                    file_name=out_path.name,
+                    mime="text/csv",
+                )
+            else:
+                st.error(f"Export failed. CSV not found at expected path: {out_path}")
+
+        except Exception as e:
+            st.error(str(e))
+
 def main():
     st.title("WideLog IMU CSV Export (MVP)")
 
+    ## ----------Dashboard & Stats----------
+    col1, col2 = st.columns(2)
+
+    # Graphs
+    df_stage = get_timeline_stages_distribution()
+    df_type = get_test_types_distribution()
+
+    with col1:
+        st.metric("Total Patients in the database", get_total_patients())
+        st.subheader("Timeline stage distribution")
+        st.bar_chart(df_stage.set_index("timeline_stage"))
+        st.subheader("Timeline stage distribution")
+        st.dataframe(get_timeline_stages_distribution(), use_container_width=True)
+    
+    with col2:
+        st.metric("Patients with IMU data", get_total_patients_with_imu())
+        st.subheader("Test type distribution")
+        st.bar_chart(df_type.set_index("test_type"))
+        st.subheader("Test type distribution")
+        st.dataframe(get_test_types_distribution(), use_container_width=True)
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        export_main_button_csv()
+
+    with col4:
+        export_meta_button_csv()
+
+    ### ----------CSV Exporter----------
     # Check if source data has changed since last snapshot
     changed, _, _ = sources_changed()
 
@@ -37,9 +131,7 @@ def main():
     else:
         st.success("Database is up to date.")
 
-    # Connect to the DuckDB database
-    cfg = load_config()
-    con = duckdb.connect(cfg.duckdb_path, read_only = True)
+    # Initialize the output CSV variable
     out_csv = ""
 
     # Inputs
@@ -50,53 +142,20 @@ def main():
         st.error("Please enter an SNR ID to load available options.")
         return
     
-    # Frontend, check if id is a number
+    # Frontend, check if ID is a number
     if not snr_id.isdigit():
         st.error("The SNR ID must be a number")
         st.stop()
 
     # Backend, check if id is in the DB
-    exists = con.execute("""
-        SELECT 1
-        FROM objects_with_imu
-        WHERE snr_id = ?
-        LIMIT 1;
-    """, [snr_id]).fetchone()
-
-    if exists is None:
+    if not snr_exists(snr_id):
         st.error(f"The SNR {snr_id} not found in the database")
         st.stop()
     
 
     # DROPDOWN Menu timeline and types
-    stages = con.execute("""
-        SELECT DISTINCT timeline_stage
-        FROM objects_with_imu
-        WHERE snr_id = ?
-            AND timeline_stage IS NOT NULL
-        ORDER BY
-        CASE timeline_stage
-            WHEN 'admission' THEN 1
-            WHEN 'discharge' THEN 2
-            WHEN 'FU1' THEN 3
-            WHEN 'FU2' THEN 4
-            ELSE 99
-        END
-    """, [snr_id]).fetchall()
-
-    types = con.execute("""
-        SELECT DISTINCT test_type
-        FROM objects_with_imu
-        WHERE snr_id = ?
-            AND test_type IS NOT NULL
-        ORDER BY test_type
-    """, [snr_id]).fetchall()
-
-    # Close the database connection
-    con.close()
-
-    stages = [s[0] for s in stages]
-    types = [t[0] for t in types]
+    stages = get_available_stages(snr_id)
+    types = get_available_test_types(snr_id)
 
     timeline_stage = st.selectbox(
         "timeline_stage",
@@ -113,12 +172,18 @@ def main():
         stage_arg = "" if timeline_stage == "all" else timeline_stage
         type_arg = "" if test_type == "all" else test_type
 
+        # Display the IMU files matching the criteria
+        imu_df = get_imu_files(snr_id, stage_arg, type_arg)
+
+        st.subheader("Matching IMU files")
+        st.dataframe(imu_df, use_container_width=True)
+
         try:
             with st.spinner("Exporting..."):
                 out_csv = imu_csv_export(
                     snr_id=snr_id, 
-                    timeline_stage=timeline_stage, 
-                    test_type=test_type
+                    timeline_stage=stage_arg, 
+                    test_type=type_arg
                 )
             
             out_path = build_output_path(out_csv)
@@ -137,6 +202,7 @@ def main():
 
         except Exception as e:
             st.error(str(e))
+
 
 if __name__ == "__main__":
     main()

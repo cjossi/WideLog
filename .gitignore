@@ -12,3 +12,6 @@ data/
 __pycache__/
 config.yaml
 src/widelog/step1_csv_to_parquet.py
+
+# IDE
+.vscode/
