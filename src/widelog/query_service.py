@@ -127,9 +127,10 @@ def get_available_stages(snr_id: str) -> list[str]:
             ORDER BY
                 CASE timeline_stage
                     WHEN 'admission' THEN 1
-                    WHEN 'FU1' THEN 2
-                    WHEN 'FU2' THEN 3
-                    WHEN 'discharge' THEN 4
+                    WHEN 'discharge' THEN 2
+                    WHEN 'FU1' THEN 3
+                    WHEN 'FU2' THEN 4
+                    
                     ELSE 99
                 END
         """, [snr_id]).fetchall()
@@ -186,9 +187,10 @@ def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str
             ORDER BY
                 CASE timeline_stage
                     WHEN 'admission' THEN 1
-                    WHEN 'FU1' THEN 2
-                    WHEN 'FU2' THEN 3
-                    WHEN 'discharge' THEN 4
+                    WHEN 'discharge' THEN 2
+                    WHEN 'FU1' THEN 3
+                    WHEN 'FU2' THEN 4
+                    
                     ELSE 99
                 END,
                 test_type

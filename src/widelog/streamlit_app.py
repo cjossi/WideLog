@@ -2,8 +2,8 @@
 from __future__ import annotations
 from pathlib import Path
 import streamlit as st
-import duckdb
 import shutil
+import os
 
 # Local imports
 from widelog.config import load_config
@@ -18,15 +18,14 @@ from widelog.query_service import (
     get_total_patients,
     get_total_patients_with_imu,
     get_timeline_stages_distribution,
-    get_test_types_distribution,
-    get_connection
+    get_test_types_distribution
 )
 
 st.set_page_config(page_title="WideLog IMU CSV Export", layout="centered")
 
 def build_output_path(out_csv: str) -> Path:
     cfg = load_config()
-    return Path(cfg.out_dir) / out_csv
+    return Path(cfg.export_dir) / out_csv
 
 # Direct export button function
 def export_main_button_csv():
@@ -83,6 +82,13 @@ def export_meta_button_csv():
 def main():
     st.title("WideLog IMU CSV Export (MVP)")
 
+    # Delete old temp files in export directory
+    cfg = load_config()
+    export_dir = Path(cfg.export_dir)
+    if export_dir.exists():
+        for file in export_dir.glob("*.csv"):
+            os.remove(file)
+
     ## ----------Dashboard & Stats----------
     col1, col2 = st.columns(2)
 
@@ -93,16 +99,12 @@ def main():
     with col1:
         st.metric("Total Patients in the database", get_total_patients())
         st.subheader("Timeline stage distribution")
-        st.bar_chart(df_stage.set_index("timeline_stage"))
-        st.subheader("Timeline stage distribution")
-        st.dataframe(get_timeline_stages_distribution(), use_container_width=True)
+        st.dataframe(get_timeline_stages_distribution(), width='stretch')
     
     with col2:
         st.metric("Patients with IMU data", get_total_patients_with_imu())
         st.subheader("Test type distribution")
-        st.bar_chart(df_type.set_index("test_type"))
-        st.subheader("Test type distribution")
-        st.dataframe(get_test_types_distribution(), use_container_width=True)
+        st.dataframe(get_test_types_distribution(), width='stretch')
 
     col3, col4 = st.columns(2)
 
@@ -176,7 +178,7 @@ def main():
         imu_df = get_imu_files(snr_id, stage_arg, type_arg)
 
         st.subheader("Matching IMU files")
-        st.dataframe(imu_df, use_container_width=True)
+        st.dataframe(imu_df, width='stretch')
 
         try:
             with st.spinner("Exporting..."):

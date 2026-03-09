@@ -229,7 +229,7 @@ def imu_csv_export(snr_id: str, timeline_stage: str = "", test_type: str = "") -
     file_infos, case = get_imu_csv_path(snr_id=snr_id, timeline_stage=timeline_stage, test_type=test_type)
 
     out_csv = choose_path_name(snr_id, timeline_stage, test_type, case)
-    out_path = str(Path(cfg.out_dir) / out_csv)
+    out_path = str(Path(cfg.export_dir) / out_csv)
 
     # Merge all files into one parquet file from the list of file paths and write it to the output path
     merge_csv_files(file_infos, case, out_path)

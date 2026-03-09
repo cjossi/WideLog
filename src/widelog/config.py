@@ -9,6 +9,7 @@ class Config:
     tests_root: str
     out_dir: str
     duckdb_path: str
+    export_dir: str
 
 def load_config(path: str = "config.yaml") -> Config:
     with open(path, "r", encoding="utf-8") as f:
