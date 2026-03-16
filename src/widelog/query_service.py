@@ -72,8 +72,11 @@ def get_timeline_stages_distribution():
                 CASE timeline_stage
                     WHEN 'admission' THEN 1
                     WHEN 'discharge' THEN 2
-                    WHEN 'FU1' THEN 3
-                    WHEN 'FU2' THEN 4
+                    WHEN 'w3' THEN 3
+                    WHEN 'w6' THEN 4
+                    WHEN 'w8' THEN 5
+                    WHEN 'FU1' THEN 6
+                    WHEN 'FU2' THEN 7
                     ELSE 99
                 END
         """).df()
@@ -128,9 +131,11 @@ def get_available_stages(snr_id: str) -> list[str]:
                 CASE timeline_stage
                     WHEN 'admission' THEN 1
                     WHEN 'discharge' THEN 2
-                    WHEN 'FU1' THEN 3
-                    WHEN 'FU2' THEN 4
-                    
+                    WHEN 'w3' THEN 3
+                    WHEN 'w6' THEN 4
+                    WHEN 'w8' THEN 5
+                    WHEN 'FU1' THEN 6
+                    WHEN 'FU2' THEN 7
                     ELSE 99
                 END
         """, [snr_id]).fetchall()
@@ -188,9 +193,11 @@ def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str
                 CASE timeline_stage
                     WHEN 'admission' THEN 1
                     WHEN 'discharge' THEN 2
-                    WHEN 'FU1' THEN 3
-                    WHEN 'FU2' THEN 4
-                    
+                    WHEN 'w3' THEN 3
+                    WHEN 'w6' THEN 4
+                    WHEN 'w8' THEN 5
+                    WHEN 'FU1' THEN 6
+                    WHEN 'FU2' THEN 7
                     ELSE 99
                 END,
                 test_type

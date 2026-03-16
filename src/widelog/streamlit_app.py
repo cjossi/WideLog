@@ -92,10 +92,6 @@ def main():
     ## ----------Dashboard & Stats----------
     col1, col2 = st.columns(2)
 
-    # Graphs
-    df_stage = get_timeline_stages_distribution()
-    df_type = get_test_types_distribution()
-
     with col1:
         st.metric("Total Patients in the database", get_total_patients())
         st.subheader("Timeline stage distribution")
@@ -156,18 +152,31 @@ def main():
     
 
     # DROPDOWN Menu timeline and types
-    stages = get_available_stages(snr_id)
     types = get_available_test_types(snr_id)
-
-    timeline_stage = st.selectbox(
-        "timeline_stage",
-        options = ["all"] + stages
-    )
 
     test_type = st.selectbox(
         "test_type",
         options = ["all"] + types
     )
+
+    # Initialise timeline stage
+    stages_raw = get_available_stages(snr_id)
+
+    # If case of the w3, w6 and w8 that are only for the gait test
+    if test_type == "gait":
+        stages = stages_raw
+        
+    elif test_type == "all" or test_type == "dlsm":
+        stages = [s for s in stages_raw if s not in ["w3", "w6", "w8"]]
+    else:
+        st.error("Error: test type not recognized")
+        st.stop()
+
+    timeline_stage = st.selectbox(
+            "timeline_stage",
+            options = ["all"] + stages,
+            key = f"timeline_{test_type}"       # To reset the timeline dropdown when the test type is changed
+        )
 
     if st.button("Export IMU CSV"):
         # For the export function, we want to pass empty strings for "all" to simplify the query logic in imu_csv_export
