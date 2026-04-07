@@ -9,6 +9,7 @@ import os
 from widelog.config import load_config
 from widelog.imu_csv_export import imu_csv_export
 from widelog.source_snapshot import sources_changed
+from widelog.reduced_csv_exporter import reduced_csv_exporter
 from widelog.refresh_db import refresh_db
 from widelog.query_service import (
     snr_exists,
@@ -18,7 +19,9 @@ from widelog.query_service import (
     get_total_patients,
     get_total_patients_with_imu,
     get_timeline_stages_distribution,
-    get_test_types_distribution
+    get_test_types_distribution,
+    get_all_characteristics,
+    value_exists_objects
 )
 
 st.set_page_config(page_title="WideLog IMU CSV Export", layout="centered")
@@ -79,6 +82,78 @@ def export_meta_button_csv():
         except Exception as e:
             st.error(str(e))
 
+def filter_objects(filter_nb: int):
+    # First selectbox filter creation.
+    characteristics = get_all_characteristics()
+    filter = None
+    filter_values = None
+
+    col1, col2 = st.columns(2)
+
+    with col1: 
+        filter = st.selectbox(
+            f"Filter {filter_nb}",
+            options=characteristics,
+            key = f"filter_col_{filter_nb}"         # To keep track of the filter number in the session state
+        )
+
+    with col2:
+        filter_values = st.text_input(
+            f"Filter {filter_nb} values", 
+            value="",
+            key = f"filter_values_{filter_nb}",      # To keep track of the filter number in the session state
+            on_change = update_current_values
+        ).strip()
+
+    # Check if the filter values are in the db
+    if filter and filter_values:
+        if value_exists_objects(filter, filter_values):
+            st.success(f"All values for {filter} are valid.")
+        else:
+            st.error(f"Value '{filter_values}' not found in column '{filter}' of the database.")
+
+    return filter, filter_values
+
+def update_current_values():
+    st.session_state.current_value = st.session_state.text_input_value
+
+def add_filter_callback():
+    current_filter = st.session_state.current_filter
+    current_value = st.session_state.current_value
+    st.session_state.filters.append((current_filter, current_value))
+    st.session_state.filter_nb += 1
+    st.session_state.current_filter = None
+    st.session_state.current_value = None
+
+def remove_filter_callback(index):
+    st.session_state.filters.pop(index)
+    st.session_state.filter_nb = len(st.session_state.filters) + 1
+
+def export_reduced_column(column_nb: int):
+    # First selectbox filter creation.
+    characteristics = get_all_characteristics()
+    selected_column = None
+
+    selected_column = st.selectbox(
+        f"Column {column_nb}",
+        options=characteristics,
+        key = f"col_{column_nb}"         # To keep track of the column number in the session state
+    )
+
+    # No need to check since it's a selectbox, the value will always be valid
+
+    return selected_column
+
+def add_column_callback():
+    current_column = st.session_state.current_column
+    st.session_state.columns.append(current_column)
+    st.session_state.column_nb += 1
+    st.session_state.current_column = None
+
+def remove_column_callback(index):
+    st.session_state.columns.pop(index)
+    st.session_state.column_nb = len(st.session_state.columns) + 1
+
 def main():
     st.title("WideLog IMU CSV Export (MVP)")
 
@@ -128,6 +203,91 @@ def main():
 
     else:
         st.success("Database is up to date.")
+
+    ###----------FILTERS & EXPORT----------
+    #------------Filters-------------------
+    # Use of session state to keep track of the filters and their number
+    if "filters" not in st.session_state:
+        st.session_state.filters = []
+    if "filter_nb" not in st.session_state:
+        st.session_state.filter_nb = 1
+    if "text_input_value" not in st.session_state:
+        st.session_state.text_input_value = ""
+    if "current_value" not in st.session_state:
+        st.session_state.current_value = ""
+
+    # Display existing filters
+    for i, (filter, filter_value) in enumerate(st.session_state.filters):
+        col1, col2 = st.columns([4, 1])
+
+        with col1:
+            st.write(f"Filter {i+1}: {filter} = {filter_value}")
+        with col2:
+            st.button("Remove", key=f"del_{i+1}", on_click = remove_filter_callback, args = (i,))
+
+    # Display the curent filter to add
+    st.session_state.current_filter, st.session_state.current_value = filter_objects(filter_nb = st.session_state.filter_nb)
+
+    # Button to ad a filter
+    st.button("Add Filter", on_click = add_filter_callback)
+
+
+
+
+    ###----------REDUCED SIZE EXPORTER-----
+    # Add selection of columns to export for the reduced size CSV export
+    st.subheader("Reduced Size CSV Export")
+    st.info("Select the columns you want to include in the reduced size CSV export.")
+
+    ## ---Selection of the columns to export for the reduced size CSV export---
+    # Use of session state to keep track of the columns and their number
+    if "columns" not in st.session_state:
+        st.session_state.columns = []
+    if "column_nb" not in st.session_state:
+        st.session_state.column_nb = 1
+
+    # Display existing column selection
+    for i, column in enumerate(st.session_state.columns):
+        col1, col2 = st.columns([4, 1])
+
+        with col1:
+            st.write(f"Column {i+1}: {column}")
+        with col2:
+            st.button("Remove", key=f"del_{i+1}", on_click = remove_column_callback, args = (i,))
+
+    # Display the current column selection to add
+    st.session_state.current_column = export_reduced_column(column_nb= st.session_state.column_nb)
+
+    # Button to add a column to the selection
+    st.button("Add Column", on_click = add_column_callback)
+
+    ## ---Button to export the reduced size CSV with the selected columns (filters in the future)---
+    if st.button("Export Reduced Size CSV"):
+        if not st.session_state.columns:
+            st.error("Please select at least one column to export.")
+        else:
+
+            try:
+                with st.spinner("Exporting..."):
+                    out_path = reduced_csv_exporter(list_of_columns=st.session_state.columns)
+    
+                
+                if out_path.exists():
+                    st.success(f"Exported successfully: {out_path}")
+
+                    st.download_button(
+                        label="Download Reduced Size CSV",
+                        data=out_path.read_bytes(),
+                        file_name=out_path.name,
+                        mime="text/csv",
+                    )
+                else:
+                    st.error(f"Export failed. CSV not found at expected path: {out_path}")
+
+            except Exception as e:
+                st.error(str(e))
+
+    ###----------CSV IMU Exporter----------
 
     # Initialize the output CSV variable
     out_csv = ""

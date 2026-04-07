@@ -229,6 +229,38 @@ def get_basic_stats(table_name: str, column_name: str) -> list[tuple[str, str]]:
     finally:        
         con.close()
 
+def get_all_characteristics():
+    con = get_connection()
+
+    try:
+        result = con.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'objects'
+        """).fetchall()
+
+        return [row[0] for row in result]
+    
+    finally:        
+        con.close()
+
+
+def value_exists_objects(column_name, value) -> bool:
+    con = get_connection()
+
+    try:
+        result = con.execute(f"""
+            SELECT 1
+            FROM objects
+            WHERE {column_name} = ?
+            LIMIT 1
+        """, [value]).fetchone()
+
+        return result is not None
+    
+    finally:        
+        con.close()
+
 
 def main():
     list = get_timeline_stages_distribution()
