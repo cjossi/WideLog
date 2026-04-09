@@ -223,7 +223,7 @@ def main():
         with col1:
             st.write(f"Filter {i+1}: {filter} = {filter_value}")
         with col2:
-            st.button("Remove", key=f"del_{i+1}", on_click = remove_filter_callback, args = (i,))
+            st.button("Remove", key=f"del_filter_{i+1}", on_click = remove_filter_callback, args = (i,))
 
     # Display the curent filter to add
     st.session_state.current_filter, st.session_state.current_value = filter_objects(filter_nb = st.session_state.filter_nb)
@@ -253,13 +253,15 @@ def main():
         with col1:
             st.write(f"Column {i+1}: {column}")
         with col2:
-            st.button("Remove", key=f"del_{i+1}", on_click = remove_column_callback, args = (i,))
+            st.button("Remove", key=f"del_column_{i+1}", on_click = remove_column_callback, args = (i,))
 
     # Display the current column selection to add
     st.session_state.current_column = export_reduced_column(column_nb= st.session_state.column_nb)
 
     # Button to add a column to the selection
     st.button("Add Column", on_click = add_column_callback)
+
+    print(st.session_state.filters)
 
     ## ---Button to export the reduced size CSV with the selected columns (filters in the future)---
     if st.button("Export Reduced Size CSV"):
@@ -269,7 +271,7 @@ def main():
 
             try:
                 with st.spinner("Exporting..."):
-                    out_path = reduced_csv_exporter(list_of_columns=st.session_state.columns)
+                    out_path = reduced_csv_exporter(list_of_columns=st.session_state.columns, list_of_filters=st.session_state.filters)
     
                 
                 if out_path.exists():
