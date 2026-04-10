@@ -5,13 +5,13 @@ import duckdb
 # Local imports
 from widelog.config import load_config
 
-
+# This function return a connection to the DuckDB database
 def get_connection() -> duckdb.DuckDBPyConnection:
     cfg = load_config()
     con = duckdb.connect(database=str(cfg.duckdb_path))
     return con
 
-
+# This function check if a snr_id exists in the database
 def snr_exists(snr_id: str) -> bool:
     con = get_connection()
     try:
@@ -25,7 +25,7 @@ def snr_exists(snr_id: str) -> bool:
     finally:
         con.close()
 
-
+# This function return the total number of patients in the database
 def get_total_patients() -> int:
     con = get_connection()
     try:
@@ -42,7 +42,7 @@ def get_total_patients() -> int:
     finally:
         con.close()
 
-
+# This function return the total number of patients with IMU data in the database
 def get_total_patients_with_imu() -> int:
     con = get_connection()
     try:
@@ -59,7 +59,7 @@ def get_total_patients_with_imu() -> int:
     finally:
         con.close()
 
-
+# This function return a distribution of the timeline stages in the database
 def get_timeline_stages_distribution():
     con = get_connection()
     try:
@@ -86,7 +86,7 @@ def get_timeline_stages_distribution():
     finally:
         con.close()
 
-
+# This function return a distribution of the test types in the database
 def get_test_types_distribution():
     con = get_connection()
     try:
@@ -103,7 +103,7 @@ def get_test_types_distribution():
     finally:
         con.close()
 
-
+# This function return information about a patient given its snr_id
 def get_patient_info(snr_id: str):
     con = get_connection()
     try:
@@ -118,7 +118,7 @@ def get_patient_info(snr_id: str):
     finally:
         con.close()
 
-
+# This function return the available timeline stages for a given snr_id
 def get_available_stages(snr_id: str) -> list[str]:
     con = get_connection()
     try:
@@ -143,7 +143,7 @@ def get_available_stages(snr_id: str) -> list[str]:
     finally:
         con.close()
 
-
+# This function return the available test types for a given snr_id and timeline_stage
 def get_available_test_types(snr_id: str, timeline_stage: str | None = None) -> list[str]:
     con = get_connection()
     try:
@@ -169,7 +169,7 @@ def get_available_test_types(snr_id: str, timeline_stage: str | None = None) -> 
     finally:
         con.close()
 
-
+# This function return the connection to the IMU files
 def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str | None = None):
     con = get_connection()
     try:
@@ -207,6 +207,7 @@ def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str
     finally:
         con.close()
 
+# This function return the basic statistics (mean, min, max) of a given column in a given table
 def get_basic_stats(table_name: str, column_name: str) -> list[tuple[str, str]]:
     allowed_table = ["main", "meta", "objects"]
 
@@ -229,6 +230,7 @@ def get_basic_stats(table_name: str, column_name: str) -> list[tuple[str, str]]:
     finally:        
         con.close()
 
+# This function return all the characteristics (column names) of the "objects" view in the database
 def get_all_characteristics():
     con = get_connection()
 
@@ -244,7 +246,7 @@ def get_all_characteristics():
     finally:        
         con.close()
 
-
+# This function check if a value exists in a given column of the "objects" view
 def value_exists_objects(column_name, value) -> bool:
     con = get_connection()
 

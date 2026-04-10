@@ -6,7 +6,7 @@ from pathlib import Path
 from widelog.config import load_config
 from widelog.query_service import get_connection
 
-
+# This function export a reduced size CSV file with only the selected columns and filters
 def reduced_csv_exporter(list_of_columns = [], list_of_filters = []):
     ## ---CHECKS--- ##
     # Check if the list of columns is None
