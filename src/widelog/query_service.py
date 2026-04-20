@@ -4,6 +4,7 @@ import duckdb
 
 # Local imports
 from widelog.config import load_config
+from widelog.imu_csv_export import NULLS
 
 # This function return a connection to the DuckDB database
 def get_connection() -> duckdb.DuckDBPyConnection:
@@ -206,6 +207,32 @@ def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str
         return con.execute(query, params).df()
     finally:
         con.close()
+
+# This function is an improved version of get_imu_files
+def get_imu_files_v2(snr_id: str, timeline_stage: str | None = None, test_type: str | None = None):
+    query = """
+        SELECT 
+            snr_id, 
+            timeline_stage, 
+            test_type, 
+            file_path
+        FROM objects_with_imu
+        WHERE 1=1
+    """
+
+    params = []
+
+    if snr_id != "all":
+        query += " AND snr_id = ?"
+        params.append(snr_id)
+
+    if timeline_stage not in NULLS:
+        query += " AND timeline_stage = ?"
+        params.append(timeline_stage)
+
+    if test_type not in NULLS:
+        query += " AND test_type = ?"
+        params.append(test_type)
 
 # This function return the basic statistics (mean, min, max) of a given column in a given table
 def get_basic_stats(table_name: str, column_name: str) -> list[tuple[str, str]]:

@@ -16,6 +16,7 @@ from widelog.query_service import (
     get_available_stages,
     get_available_test_types,
     get_imu_files,
+    get_imu_files_v2,
     get_total_patients,
     get_total_patients_with_imu,
     get_timeline_stages_distribution,
@@ -401,15 +402,14 @@ def main():
     if "current_tab" not in st.session_state:
         st.session_state.current_tab = "Dashboard & Stats"
     
-    tab1, tab2, tab3 = st.tabs(["Dashboard & Stats", "CSV Reduced Exporter", "CSV IMU Exporter"], on_change = change_tab, default=st.session_state.current_tab)
+    tab1, tab2, tab3 = st.tabs(["Dashboard & Stats", "CSV Reduced Exporter", "CSV IMU Exporter"], on_change = change_tab, default="Dashboard & Stats")
 
     ###----------Dashboard & Stats---------###
-    if tab1.open:
-        with tab1:
-            # Update the current tab in session state
-            st.session_state.current_tab = "Dashboard & Stats"
+    with tab1:
+        # Update the current tab in session state
+        st.session_state.current_tab = "Dashboard & Stats"
 
-            get_dashboard_stats()
+        get_dashboard_stats()
             
 
     ###----------CSV Exporter--------------###
@@ -417,21 +417,19 @@ def main():
     modified_database()
 
     ###----------REDUCED SIZE EXPORTER-----###
-    if tab2.open:
-        with tab2:
-            # Update the curret tab in session state
-            st.session_state.current_tab = "CSV Reduced Exporter"
+    with tab2:
+        # Update the curret tab in session state
+        st.session_state.current_tab = "CSV Reduced Exporter"
 
-            filter_columns_csv_exporter()
+        filter_columns_csv_exporter()
 
 
     ###----------CSV IMU Exporter----------###
-    if tab3.open:
-        with tab3:
-            # Update the current tab in session state
-            st.session_state.current_tab = "CSV IMU Exporter"
+    with tab3:
+        # Update the current tab in session state
+        st.session_state.current_tab = "CSV IMU Exporter"
 
-            csv_imu_exporter()
+        csv_imu_exporter()
 
 
 
