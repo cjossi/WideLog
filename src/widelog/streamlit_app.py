@@ -126,6 +126,7 @@ def update_current_values():
 def add_filter_callback():
     current_filter = st.session_state.current_filter
     current_value = st.session_state.current_value
+
     st.session_state.filters.append((current_filter, current_value))
     st.session_state.filter_nb += 1
     st.session_state.current_filter = None
@@ -164,6 +165,10 @@ def add_column_callback():
 def remove_column_callback(index):
     st.session_state.columns.pop(index)
     st.session_state.column_nb = len(st.session_state.columns) + 1
+
+# This function show a toast message when the user change tab
+def change_tab():
+    st.toast(f"You opened the {st.session_state.current_tab} tab.")
 
 ## ---Functions used in the main function--- ##
 # This function display some stats about the database in the dashboard tab
@@ -380,6 +385,7 @@ def csv_imu_exporter():
         except Exception as e:
             st.error(str(e))
 
+# Main function
 def main():
     st.title("WideLog IMU CSV Export (MVP)")
 
@@ -391,23 +397,42 @@ def main():
             os.remove(file)
 
     ###----------TAB-----------------------###
-    tab1, tab2, tab3 = st.tabs(["Dashboard & Stats", "CSV Reduced Exporter", "CSV IMU Exporter"])
+    # Track the current tab in session state to avoid resetting the tab selection after rerun
+    if "current_tab" not in st.session_state:
+        st.session_state.current_tab = "Dashboard & Stats"
+    
+    tab1, tab2, tab3 = st.tabs(["Dashboard & Stats", "CSV Reduced Exporter", "CSV IMU Exporter"], on_change = change_tab, default=st.session_state.current_tab)
 
     ###----------Dashboard & Stats---------###
-    with tab1:
-        get_dashboard_stats()
+    if tab1.open:
+        with tab1:
+            # Update the current tab in session state
+            st.session_state.current_tab = "Dashboard & Stats"
+
+            get_dashboard_stats()
+            
 
     ###----------CSV Exporter--------------###
     # Check if database has been modified since last snapshot
     modified_database()
 
     ###----------REDUCED SIZE EXPORTER-----###
-    with tab2:
-        filter_columns_csv_exporter()
+    if tab2.open:
+        with tab2:
+            # Update the curret tab in session state
+            st.session_state.current_tab = "CSV Reduced Exporter"
+
+            filter_columns_csv_exporter()
+
 
     ###----------CSV IMU Exporter----------###
-    with tab3:
-        csv_imu_exporter()
+    if tab3.open:
+        with tab3:
+            # Update the current tab in session state
+            st.session_state.current_tab = "CSV IMU Exporter"
+
+            csv_imu_exporter()
+
 
 
 if __name__ == "__main__":

@@ -7,8 +7,12 @@ src/widelog/imu_csv_export.py
 src/widelog/ingest.py
 src/widelog/profile.py
 src/widelog/query_demo.py
-src/widelog/steamlit_app.py
+src/widelog/query_service.py
+src/widelog/reduced_csv_exporter.py
+src/widelog/refresh_db.py
+src/widelog/source_snapshot.py
 src/widelog/step1_csv_to_parquet.py
+src/widelog/streamlit_app.py
 src/widelog/tests_index.py
 src/widelog.egg-info/PKG-INFO
 src/widelog.egg-info/SOURCES.txt
