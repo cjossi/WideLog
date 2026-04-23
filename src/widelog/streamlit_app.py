@@ -2,6 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 import streamlit as st
+import pandas as pd
 import shutil
 import os
 
@@ -312,19 +313,32 @@ def csv_imu_exporter():
         st.error("Please enter an SNR ID to load available options.")
         return
     
-    # Frontend, check if ID is a number
-    if not snr_id.isdigit():
-        st.error("The SNR ID must be a number")
-        st.stop()
+    # Frontend, check if ID is a number, "all" or list
+    if snr_id != "all":
+        snr_ids = [s.strip() for s in snr_id.split(",")]
 
-    # Backend, check if id is in the DB
-    if not snr_exists(snr_id):
-        st.error(f"The SNR {snr_id} not found in the database")
-        st.stop()
+        if not all(s.isdigit() for s in snr_ids):
+            st.error("The SNR ID must be a number, 'all' or a comma-separated list of numbers.")
+            st.stop()
+
+    # Backend, check if id is in the DB or if it's "all" or a list of ids
+    if snr_id != "all":
+        snr_ids = [s.strip() for s in snr_id.split(",")]
+
+        invalid_ids = [s for s in snr_ids if not snr_exists(s)]
+
+        if invalid_ids:
+            st.error(f"The following SNR IDs were not found in the database: {', '.join(invalid_ids)}")
+            st.stop()
     
 
     # DROPDOWN Menu timeline and types
-    types = get_available_test_types(snr_id)
+    if snr_id == "all" or "," in snr_id:
+        types = get_available_test_types()
+        stages_raw = get_available_stages()
+    else:
+        types = get_available_test_types(snr_id)
+        stages_raw = get_available_stages(snr_id)
 
     test_type = st.selectbox(
         "test_type",
@@ -332,7 +346,6 @@ def csv_imu_exporter():
     )
 
     # Initialise timeline stage
-    stages_raw = get_available_stages(snr_id)
 
     # If case of the w3, w6 and w8 that are only for the gait test
     if test_type == "gait":
@@ -356,20 +369,20 @@ def csv_imu_exporter():
         type_arg = "" if test_type == "all" else test_type
 
         # Display the IMU files matching the criteria
-        imu_df = get_imu_files(snr_id, stage_arg, type_arg)
+        imu_df = get_imu_files_v2(snr_id, stage_arg, type_arg)
+
+        df = pd.DataFrame(imu_df, columns=["snr_id", "timeline_stage", "test_type", "file_path"])
 
         st.subheader("Matching IMU files")
-        st.dataframe(imu_df, width='stretch')
+        st.dataframe(df, width='stretch')
 
         try:
             with st.spinner("Exporting..."):
-                out_csv = imu_csv_export(
+                out_path = Path(imu_csv_export(
                     snr_id=snr_id, 
                     timeline_stage=stage_arg, 
                     test_type=type_arg
-                )
-            
-            out_path = build_output_path(out_csv)
+                ))
             
             if out_path.exists():
                 st.success(f"Exported successfully: {out_path}")

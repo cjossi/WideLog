@@ -138,7 +138,7 @@ def get_imu_csv_path(snr_id: str, timeline_stage: str, test_type: str) -> tuple[
     return file_infos, case
 
 # This function merges multiple CSV files into a single CSV file. From a list of paths
-def merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv: str) -> None:
+def OLD_merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv: str) -> None:
     # Reorder le file_infos
     STAGE_ORDER = {
         "admission": 0,
@@ -202,38 +202,116 @@ def merge_csv_files(file_infos: list[tuple[str, str, str]], case: int,  out_csv:
     merged_df.write_csv(out_csv)
     print(f"Merged {len(file_infos)} files into {out_csv} (case {case})")
 
-def choose_path_name(snr_id: str, timeline_stage: str, test_type: str, case: int) -> str:
-    if case == 1:
-        return f"SNR{snr_id}_{timeline_stage}_{test_type}.csv"
+# New merge function without the cases
+def merge_csv_files(file_infos: list[tuple[str, str, str, str]], out_csv: str) -> None:
+    dfs = []
+
+    for file_path, stages, test_type, snr_id in file_infos:
+
+        df = pl.read_csv(
+            file_path,
+            has_header=False,
+            new_columns=[
+                "date",
+                "acc_x",
+                "acc_y",
+                "acc_z",
+                "gyr_x",
+                "gyr_y",
+                "gyr_z"
+            ],
+            try_parse_dates=True,
+            null_values=NULLS
+        )
+
+        df = df.with_columns([
+            pl.lit(stages).alias("timeline_stage"),
+            pl.lit(test_type).alias("test_type"),
+            pl.lit(snr_id).alias("snr_id")
+        ])
+
+        dfs.append(df)
     
-    elif case == 2:        
-        return f"SNR{snr_id}_all_{test_type}.csv"
-    
-    elif case == 3:       
-        return f"SNR{snr_id}_{timeline_stage}_all.csv"
-    
-    elif case == 4:
-        return f"SNR{snr_id}.csv"
-    
-    else:
-        raise ValueError("Invalid case number")
+    merged_df = pl.concat(dfs)
+    merged_df.write_csv(out_csv)
+    print(f"Merged {len(file_infos)} files into {out_csv}")
+
+# This function chooses the name of the output CSV file based on the provided parameters
+def choose_path_name(snr_id: str, timeline_stage: str, test_type: str) -> str:
+    snr_part = "ALL" if snr_id == "all" else snr_id
+    stage_part = timeline_stage if timeline_stage else "ALL"
+    type_part = test_type if test_type else "ALL"
+
+    return f"SNR_{snr_part}_{stage_part}_{type_part}.csv"
 
 
 # This function retrieves the file paths of the IMU CSV files based on the provided parameters and then merges them into a single CSV file.
 def imu_csv_export(snr_id: str, timeline_stage: str = "", test_type: str = "") -> str:
+    # Load the config
     cfg = load_config()
-    case = 0
-    file_infos = []
 
-    # Get the file paths of the IMU CSV files based on the provided parameters
-    file_infos, case = get_imu_csv_path(snr_id=snr_id, timeline_stage=timeline_stage, test_type=test_type)
+    # Get the all the files and metadata
+    file_infos = get_imu_files(snr_id=snr_id, timeline_stage=timeline_stage, test_type=test_type)
 
-    out_csv = choose_path_name(snr_id, timeline_stage, test_type, case)
+    # Check if we have files to merge
+    if not file_infos:
+        raise ValueError("No IMU files found for the given filters")
+
+    # Choose the output file name 
+    out_csv = choose_path_name(snr_id, timeline_stage, test_type)
     out_path = str(Path(cfg.export_dir) / out_csv)
 
     # Merge all files into one parquet file from the list of file paths and write it to the output path
-    merge_csv_files(file_infos, case, out_path)
+    merge_csv_files(file_infos, out_path)
     return out_csv
+
+
+# New version of the export to be able to export "all" and "xxx,xxx,xxx"
+def get_imu_files(snr_id: str, timeline_stage: str, test_type: str) -> list[tuple(str, str, str, str)]:
+
+
+    # Dynamic SQL query construction
+    query = """
+    SELECT
+        file_path,
+        timeline_stage,
+        test_type,
+        snr_id
+    FROM objects_with_imu
+    WHERE 1=1
+    """
+
+    params = []
+
+    # Check if snr_id is "all" or a specific id
+    if snr_id != "all":
+        # Support of the multi-ID query with "xxx,xxx,xxx"
+        if "," in snr_id:
+            snr_ids = [s.strip() for s in snr_id.split(",")]
+            placeholder = ",".join("?" for _ in snr_ids)
+            query += " AND snr_id IN ({placeholder})"
+            params.extend(snr_ids)
+        else:
+            query += " AND snr_id = ?"
+            params.append(snr_id)
+
+    if timeline_stage not in NULLS:
+        query += " AND timeline_stage = ?"
+        params.append(timeline_stage)
+
+    if test_type not in NULLS:
+        query += " AND test_type = ?"
+        params.append(test_type)
+
+    # Execute the query and fetch results
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+
+    # Return a list of tuples (file_path, timeline_stage, test_type, snr_id)
+    return [(row[0], row[1], row[2], row[3]) for row in results]
+
 
 if __name__ == "__main__":    # Example usage
     # Get one file for id 193, for all timeline_stage and test_type "gait"
