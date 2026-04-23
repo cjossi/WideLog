@@ -267,7 +267,7 @@ def imu_csv_export(snr_id: str, timeline_stage: str = "", test_type: str = "") -
 
 
 # New version of the export to be able to export "all" and "xxx,xxx,xxx"
-def get_imu_files(snr_id: str, timeline_stage: str, test_type: str) -> list[tuple(str, str, str, str)]:
+def get_imu_files(snr_id: str, timeline_stage: str, test_type: str) -> list[tuple[str, str, str, str]]:
 
 
     # Dynamic SQL query construction
@@ -289,7 +289,7 @@ def get_imu_files(snr_id: str, timeline_stage: str, test_type: str) -> list[tupl
         if "," in snr_id:
             snr_ids = [s.strip() for s in snr_id.split(",")]
             placeholder = ",".join("?" for _ in snr_ids)
-            query += " AND snr_id IN ({placeholder})"
+            query += f" AND snr_id IN ({placeholder})"
             params.extend(snr_ids)
         else:
             query += " AND snr_id = ?"

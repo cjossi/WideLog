@@ -313,18 +313,15 @@ def csv_imu_exporter():
         st.error("Please enter an SNR ID to load available options.")
         return
     
-    # Frontend, check if ID is a number, "all" or list
     if snr_id != "all":
         snr_ids = [s.strip() for s in snr_id.split(",")]
 
+        # Frontend, check if ID is a number, "all" or list
         if not all(s.isdigit() for s in snr_ids):
             st.error("The SNR ID must be a number, 'all' or a comma-separated list of numbers.")
             st.stop()
 
-    # Backend, check if id is in the DB or if it's "all" or a list of ids
-    if snr_id != "all":
-        snr_ids = [s.strip() for s in snr_id.split(",")]
-
+        # Backend, check if id is in the DB or if it's "all" or a list of ids
         invalid_ids = [s for s in snr_ids if not snr_exists(s)]
 
         if invalid_ids:
@@ -333,7 +330,7 @@ def csv_imu_exporter():
     
 
     # DROPDOWN Menu timeline and types
-    if snr_id == "all" or "," in snr_id:
+    if snr_id == "all" or ("," in snr_id):
         types = get_available_test_types()
         stages_raw = get_available_stages()
     else:
@@ -374,7 +371,7 @@ def csv_imu_exporter():
         df = pd.DataFrame(imu_df, columns=["snr_id", "timeline_stage", "test_type", "file_path"])
 
         st.subheader("Matching IMU files")
-        st.dataframe(df, width='stretch')
+        df = pd.DataFrame(imu_df, columns=["file_path", "timeline_stage", "test_type", "snr_id"])
 
         try:
             with st.spinner("Exporting..."):
