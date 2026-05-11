@@ -4,7 +4,8 @@ import duckdb
 
 # Local imports
 from widelog.config import load_config
-from widelog.imu_csv_export import NULLS
+
+NULLS = ["", "NA", "null", "NULL", "not possible"]
 
 # This function return a connection to the DuckDB database
 def get_connection() -> duckdb.DuckDBPyConnection:
@@ -119,76 +120,36 @@ def get_patient_info(snr_id: str):
     finally:
         con.close()
 
-# This function return the available timeline stages for a given snr_id
+# This function return the available timeline stages
 def get_available_stages(snr_id: str) -> list[str]:
+    # Get connection to the database
     con = get_connection()
+
+    # Dynamic query construction
     try:
-        rows = con.execute("""
+        # Qerry to get all the distinct timeline stages that are not null
+        query = """
             SELECT DISTINCT timeline_stage
             FROM objects_with_imu
-            WHERE snr_id = ?
-              AND timeline_stage IS NOT NULL
-            ORDER BY
-                CASE timeline_stage
-                    WHEN 'admission' THEN 1
-                    WHEN 'discharge' THEN 2
-                    WHEN 'w3' THEN 3
-                    WHEN 'w6' THEN 4
-                    WHEN 'w8' THEN 5
-                    WHEN 'FU1' THEN 6
-                    WHEN 'FU2' THEN 7
-                    ELSE 99
-                END
-        """, [snr_id]).fetchall()
-        return [row[0] for row in rows]
-    finally:
-        con.close()
-
-# This function return the available test types for a given snr_id and timeline_stage
-def get_available_test_types(snr_id: str, timeline_stage: str | None = None) -> list[str]:
-    con = get_connection()
-    try:
-        if timeline_stage:
-            rows = con.execute("""
-                SELECT DISTINCT test_type
-                FROM objects_with_imu
-                WHERE snr_id = ?
-                  AND timeline_stage = ?
-                  AND test_type IS NOT NULL
-                ORDER BY test_type
-            """, [snr_id, timeline_stage]).fetchall()
-        else:
-            rows = con.execute("""
-                SELECT DISTINCT test_type
-                FROM objects_with_imu
-                WHERE snr_id = ?
-                  AND test_type IS NOT NULL
-                ORDER BY test_type
-            """, [snr_id]).fetchall()
-
-        return [row[0] for row in rows]
-    finally:
-        con.close()
-
-# This function return the connection to the IMU files
-def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str | None = None):
-    con = get_connection()
-    try:
-        query = """
-            SELECT snr_id, timeline_stage, test_type, file_path
-            FROM objects_with_imu
-            WHERE snr_id = ?
+            WHERE timeline_stage IS NOT NULL
         """
-        params = [snr_id]
+        
+        params = []
 
-        if timeline_stage:
-            query += " AND timeline_stage = ?"
-            params.append(timeline_stage)
+        # If snr_id is not "all", we add a condition to the query to filter by snr_id
+        if snr_id != "all":
+            # If snr_id contains a comma, we split it and use the IN operator
+            if "," in snr_id:
+                snr_ids = [s.strip() for s in snr_id.split(",")]
+                query += " AND snr_id IN ({})".format(",".join("?" for _ in snr_ids))
+                params.extend(snr_ids)
 
-        if test_type:
-            query += " AND test_type = ?"
-            params.append(test_type)
+            # Otherwise, we use a simple equality condition
+            else:
+                query += " AND snr_id = ?"
+                params.append(snr_id)
 
+        # We order the results
         query += """
             ORDER BY
                 CASE timeline_stage
@@ -200,16 +161,63 @@ def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str
                     WHEN 'FU1' THEN 6
                     WHEN 'FU2' THEN 7
                     ELSE 99
-                END,
-                test_type
+                END
+        """
+        # Execute the query and fetch results
+        rows = con.execute(query, params).fetchall()
+        return [row[0] for row in rows]
+    
+    finally:
+        con.close()
+
+# This function return the available test types for a given snr_id and timeline_stage
+def get_available_test_types(snr_id: str, timeline_stage: str | None = None) -> list[str]:
+    # Get connection to the database
+    con = get_connection()
+
+    # Dynamic query construction
+    try:
+        # Querry to get all the distinct test types that are not null
+        query = """
+            SELECT DISTINCT test_type
+            FROM objects_with_imu
+            WHERE test_type IS NOT NULL
         """
 
-        return con.execute(query, params).df()
+        params = []
+
+        # If snr_id is not "all", we add a condition to the query to filter by snr_id
+        if snr_id != "all":
+            # If snr_id contains a comma, we split it and use the IN operator
+            if "," in snr_id:
+                snr_ids = [s.strip() for s in snr_id.split(",")]
+                query += " AND snr_id IN ({})".format(",".join("?" for _ in snr_ids))
+                params.extend(snr_ids)
+
+            # Otherwise, we use a simple equality condition
+            else:
+                query += " AND snr_id = ?"
+                params.append(snr_id)
+
+        # If timeline_stage is not None, we add a condition to filter by timeline_stage
+        if timeline_stage:
+            query += """
+                  AND timeline_stage = ?
+            """
+            params.append(timeline_stage)
+
+        # We order the results
+        query += " ORDER BY test_type"
+
+        # Execute the query and fetch results
+        rows = con.execute(query, params).fetchall()
+        return [row[0] for row in rows]
+    
     finally:
         con.close()
 
 # This function is an improved version of get_imu_files
-def get_imu_files_v2(snr_id: str, timeline_stage: str | None = None, test_type: str | None = None):
+def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str | None = None):
     query = """
         SELECT 
             snr_id, 

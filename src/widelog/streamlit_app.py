@@ -1,6 +1,8 @@
 # Import
 from __future__ import annotations
 from pathlib import Path
+import zipfile
+import io
 import streamlit as st
 import pandas as pd
 import shutil
@@ -17,7 +19,6 @@ from widelog.query_service import (
     get_available_stages,
     get_available_test_types,
     get_imu_files,
-    get_imu_files_v2,
     get_total_patients,
     get_total_patients_with_imu,
     get_timeline_stages_distribution,
@@ -302,9 +303,6 @@ def csv_imu_exporter():
     st.header("IMU CSV Export")
     st.info("Select the criteria for the IMU CSV export. You can choose to filter by test type and timeline stage, or export all IMU files for a given SNR ID.")
 
-    # Initialize the output CSV variable
-    out_csv = ""
-
     # Inputs
     snr_id = st.text_input("SNR ID", value="").strip()
     
@@ -330,12 +328,8 @@ def csv_imu_exporter():
     
 
     # DROPDOWN Menu timeline and types
-    if snr_id == "all" or ("," in snr_id):
-        types = get_available_test_types()
-        stages_raw = get_available_stages()
-    else:
-        types = get_available_test_types(snr_id)
-        stages_raw = get_available_stages(snr_id)
+    types = get_available_test_types(snr_id)
+    stages_raw = get_available_stages(snr_id)
 
     test_type = st.selectbox(
         "test_type",
@@ -366,7 +360,7 @@ def csv_imu_exporter():
         type_arg = "" if test_type == "all" else test_type
 
         # Display the IMU files matching the criteria
-        imu_df = get_imu_files_v2(snr_id, stage_arg, type_arg)
+        imu_df = get_imu_files(snr_id, stage_arg, type_arg)
 
         df = pd.DataFrame(imu_df, columns=["snr_id", "timeline_stage", "test_type", "file_path"])
 
@@ -375,23 +369,51 @@ def csv_imu_exporter():
 
         try:
             with st.spinner("Exporting..."):
-                out_path = Path(imu_csv_export(
+                out_path1, out_path2 = imu_csv_export(
                     snr_id=snr_id, 
                     timeline_stage=stage_arg, 
                     test_type=type_arg
-                ))
-            
-            if out_path.exists():
-                st.success(f"Exported successfully: {out_path}")
-
-                st.download_button(
-                    label="Download IMU CSV",
-                    data=out_path.read_bytes(),
-                    file_name=out_path.name,
-                    mime="text/csv",
                 )
+
+            # Check if we have one out path or two and do the expected output path accordingly
+            if out_path1 == out_path2:
+                out_path = out_path1
+
+                if out_path.exists():
+                    st.success(f"Exported successfully: {out_path}")
+                    st.write(out_path)
+
+                    st.download_button(
+                        label="Download IMU CSV",
+                        data=out_path.read_bytes(),
+                        file_name=out_path.name,
+                        mime="text/csv",
+                    )
+                else:
+                    st.error(f"Export failed. CSV not found at expected path: {out_path}")
+
             else:
-                st.error(f"Export failed. CSV not found at expected path: {out_path}")
+                if out_path1.exists() and out_path2.exists():
+                    st.success(f"Exported successfully: {out_path1} and {out_path2}")
+                    st.write(out_path1)
+                    st.write(out_path2)
+
+                    # Creation of a zip file, to download both csv in one click
+                    buf = io.BytesIO()
+
+                    # Write the two CSV files into the zip file
+                    with zipfile.ZipFile(buf, "x") as csv_file:
+                        csv_file.writestr(out_path1.name, out_path1.read_text())
+                        csv_file.writestr(out_path2.name, out_path2.read_text())
+
+                    st.download_button(
+                        label="Download IMU CSV",
+                        data=buf.getvalue(),
+                        file_name=out_path1.name + "_" + out_path2.name + ".zip",
+                        mime="application/zip",
+                    )
+                else:
+                    st.error(f"Export failed. CSV not found at expected path: {out_path1} and/or {out_path2}")
 
         except Exception as e:
             st.error(str(e))
