@@ -1,97 +1,145 @@
-# Import
+# Standard library imports
 from __future__ import annotations
+
+# Third-party imports
+from appscript import con
 import duckdb
+import polars as pl
+import pandas as pd
 
 # Local imports
 from widelog.config import load_config
+from widelog.constants import (
+    ALL,
+    STAGE_ORDER
+)
 
-NULLS = ["", "NA", "null", "NULL", "not possible"]
 
-# This function return a connection to the DuckDB database
 def get_connection() -> duckdb.DuckDBPyConnection:
+    """
+    Return a connection to the DuckDB database.
+    """
     cfg = load_config()
-    con = duckdb.connect(database=str(cfg.duckdb_path))
-    return con
 
-# This function check if a snr_id exists in the database
+    return duckdb.connect(database=str(cfg.duckdb_path))
+
+def add_snr_filter(
+        query: str,
+        params: list[str],
+        snr_id: str
+) -> tuple[str, list[str]]:
+    """
+    Add an SNR ID filter to a SQL query
+
+    Supports:
+    - Single SNR ID (e.g., "001"). 
+    - comma-separated SNR IDs (e.g., "001, 002, 003")
+    - "all" to include all SNR IDs
+    """
+
+    params = []
+
+    if snr_id == ALL:
+        return query, params
+
+    if "," in snr_id:
+        snr_ids = [s.strip() for s in snr_id.split(",")]
+
+        placeholders = ",".join("?" for _ in snr_ids)
+
+        query += " AND snr_id IN ({placeholders})"
+        params.extend(snr_ids)
+
+    else:
+        query += " AND snr_id = ?"
+        params.append(snr_id)
+
+    return query, params
+
+def get_stage_order_sql(column_name: str = "timeline_stage") -> str:
+    """
+    Return a SQL CASE statement to order timeline stages in a specific order.
+    The order is defined in the STAGE_ORDER constant.
+    """
+
+    cases = "\n".join(
+        f"WHEN '{stage}' THEN {order}"
+        for stage, order in STAGE_ORDER.items()
+    )
+
+    return f"""
+        CASE {column_name}
+            {cases}
+            ELSE 99
+        END
+    """
+
 def snr_exists(snr_id: str) -> bool:
-    con = get_connection()
-    try:
+    """
+    Check wehther a patient exists in the database.
+    """
+
+    with get_connection() as con:
         result = con.execute("""
             SELECT 1 
             FROM objects 
             WHERE snr_id = ? 
             LIMIT 1
         """, [snr_id]).fetchone()
-        return result is not None
-    finally:
-        con.close()
+    
+    return result is not None
 
-# This function return the total number of patients in the database
 def get_total_patients() -> int:
-    con = get_connection()
-    try:
+    """
+    Return the total number of patients in the database.
+    """
+
+    with get_connection() as con:
         result = con.execute("""
             SELECT COUNT(DISTINCT snr_id) 
             FROM objects
         """).fetchone()
-
-        if result is None:
-            return 0
         
-        return result[0]
-    
-    finally:
-        con.close()
+    return result[0] if result else 0
 
-# This function return the total number of patients with IMU data in the database
 def get_total_patients_with_imu() -> int:
-    con = get_connection()
-    try:
+    """
+    Return the total number of patients with IMU data in the database.
+    """
+    with get_connection() as con:
         result = con.execute("""
             SELECT COUNT(DISTINCT snr_id) 
             FROM objects_with_imu
         """).fetchone()
-
-        if result is None:
-            return 0
         
-        return result[0]
-    
-    finally:
-        con.close()
+    return result[0] if result else 0
 
-# This function return a distribution of the timeline stages in the database
-def get_timeline_stages_distribution():
-    con = get_connection()
-    try:
-        results = con.execute("""
+def get_timeline_stages_distribution() -> pd.DataFrame:
+    """
+    Return the distribution of timeline stages in the database as a Pandas
+    Dataframe.
+    """
+
+    stage_order_sql = get_stage_order_sql()
+
+    with get_connection() as con:
+        results = con.execute(f"""
             SELECT timeline_stage, COUNT(*) AS count
             FROM objects_with_imu
             WHERE timeline_stage IS NOT NULL
             GROUP BY timeline_stage
-            ORDER BY
-                CASE timeline_stage
-                    WHEN 'admission' THEN 1
-                    WHEN 'discharge' THEN 2
-                    WHEN 'w3' THEN 3
-                    WHEN 'w6' THEN 4
-                    WHEN 'w8' THEN 5
-                    WHEN 'FU1' THEN 6
-                    WHEN 'FU2' THEN 7
-                    ELSE 99
-                END
+            ORDER BY {stage_order_sql}
         """).df()
 
-        return results
-    
-    finally:
-        con.close()
+    return results
 
-# This function return a distribution of the test types in the database
-def get_test_types_distribution():
-    con = get_connection()
-    try:
+def get_test_types_distribution() -> pd.DataFrame:
+    """
+    Return the distribution of test types in the database as a
+    Pandas Dataframe.
+    """
+
+    with get_connection() as con:
         results = con.execute("""
             SELECT test_type, COUNT(*) AS count
             FROM objects_with_imu
@@ -100,158 +148,93 @@ def get_test_types_distribution():
             ORDER BY test_type
         """).df()
 
-        return results
-    
-    finally:
-        con.close()
+    return results
 
-# This function return information about a patient given its snr_id
-def get_patient_info(snr_id: str):
-    con = get_connection()
-    try:
+def get_patient_info(snr_id: str) -> pd.DataFrame:
+    """
+    Return all available information for a given patient.
+    """
+
+    with get_connection() as con:
         result = con.execute("""
             SELECT *
             FROM objects
             WHERE snr_id = ?
         """, [snr_id]).df()
 
-        return result
-    
-    finally:
-        con.close()
+    return result
 
-# This function return the available timeline stages
 def get_available_stages(snr_id: str) -> list[str]:
-    # Get connection to the database
-    con = get_connection()
-
-    # Dynamic query construction
-    try:
-        # Qerry to get all the distinct timeline stages that are not null
-        query = """
-            SELECT DISTINCT timeline_stage
-            FROM objects_with_imu
-            WHERE timeline_stage IS NOT NULL
-        """
-        
-        params = []
-
-        # If snr_id is not "all", we add a condition to the query to filter by snr_id
-        if snr_id != "all":
-            # If snr_id contains a comma, we split it and use the IN operator
-            if "," in snr_id:
-                snr_ids = [s.strip() for s in snr_id.split(",")]
-                query += " AND snr_id IN ({})".format(",".join("?" for _ in snr_ids))
-                params.extend(snr_ids)
-
-            # Otherwise, we use a simple equality condition
-            else:
-                query += " AND snr_id = ?"
-                params.append(snr_id)
-
-        # We order the results
-        query += """
-            ORDER BY
-                CASE timeline_stage
-                    WHEN 'admission' THEN 1
-                    WHEN 'discharge' THEN 2
-                    WHEN 'w3' THEN 3
-                    WHEN 'w6' THEN 4
-                    WHEN 'w8' THEN 5
-                    WHEN 'FU1' THEN 6
-                    WHEN 'FU2' THEN 7
-                    ELSE 99
-                END
-        """
-        # Execute the query and fetch results
-        rows = con.execute(query, params).fetchall()
-        return [row[0] for row in rows]
-    
-    finally:
-        con.close()
-
-# This function return the available test types for a given snr_id and timeline_stage
-def get_available_test_types(snr_id: str, timeline_stage: str | None = None) -> list[str]:
-    # Get connection to the database
-    con = get_connection()
-
-    # Dynamic query construction
-    try:
-        # Querry to get all the distinct test types that are not null
-        query = """
-            SELECT DISTINCT test_type
-            FROM objects_with_imu
-            WHERE test_type IS NOT NULL
-        """
-
-        params = []
-
-        # If snr_id is not "all", we add a condition to the query to filter by snr_id
-        if snr_id != "all":
-            # If snr_id contains a comma, we split it and use the IN operator
-            if "," in snr_id:
-                snr_ids = [s.strip() for s in snr_id.split(",")]
-                query += " AND snr_id IN ({})".format(",".join("?" for _ in snr_ids))
-                params.extend(snr_ids)
-
-            # Otherwise, we use a simple equality condition
-            else:
-                query += " AND snr_id = ?"
-                params.append(snr_id)
-
-        # If timeline_stage is not None, we add a condition to filter by timeline_stage
-        if timeline_stage:
-            query += """
-                  AND timeline_stage = ?
-            """
-            params.append(timeline_stage)
-
-        # We order the results
-        query += " ORDER BY test_type"
-
-        # Execute the query and fetch results
-        rows = con.execute(query, params).fetchall()
-        return [row[0] for row in rows]
-    
-    finally:
-        con.close()
-
-# This function is an improved version of get_imu_files
-def get_imu_files(snr_id: str, timeline_stage: str | None = None, test_type: str | None = None):
-    query = """
-        SELECT 
-            snr_id, 
-            timeline_stage, 
-            test_type, 
-            file_path
-        FROM objects_with_imu
-        WHERE 1=1
+    """
+    Return the abailable timeline stages for the given SNR IDs.
     """
 
-    params = []
+    query = """
+        SELECT DISTINCT timeline_stage
+        FROM objects_with_imu
+        WHERE timeline_stage IS NOT NULL
+    """
 
-    if snr_id != "all":
-        query += " AND snr_id = ?"
-        params.append(snr_id)
+    params: list[str] = []
 
-    if timeline_stage not in NULLS:
+    query, params = add_snr_filter(query, params, snr_id)
+
+    stage_order_sql = get_stage_order_sql()
+
+    query += f"""
+        ORDER BY {stage_order_sql}
+    """
+
+    with get_connection() as con:
+        rows = con.execute(query, params).fetchall()
+
+    return [row[0] for row in rows]
+
+def get_available_test_types(
+        snr_id: str,
+        timeline_stage: str | None = None
+) -> list[str]:
+    """
+    Return all available test types for the selected SNR IDs and timeline stage.
+    """
+
+    query = """
+        SELECT DISTINCT test_type
+        FROM objects_with_imu
+        WHERE test_type IS NOT NULL
+    """
+
+    params: list[str] = []
+
+    query, params = add_snr_filter(query, params, snr_id)
+
+    if timeline_stage:
         query += " AND timeline_stage = ?"
         params.append(timeline_stage)
 
-    if test_type not in NULLS:
-        query += " AND test_type = ?"
-        params.append(test_type)
+    query += " ORDER BY test_type"
 
-# This function return the basic statistics (mean, min, max) of a given column in a given table
-def get_basic_stats(table_name: str, column_name: str) -> list[tuple[str, str]]:
+    with get_connection() as con:
+        rows = con.execute(query, params).fetchall()
+
+    return [row[0] for row in rows]
+
+def get_basic_stats(
+        table_name: str,
+        column_name: str
+) -> list[tuple[float, float, float]]:
+    """
+    Return the mean, minimum and maximum values of a given column.
+    """
+
     allowed_table = ["main", "meta", "objects"]
 
     if table_name not in allowed_table:
-        raise ValueError(f"Invalid table name. Allowed values are: {allowed_table}")
+        raise ValueError(
+            f"Invalid table name. Allowed values are: {allowed_table}"
+        )
 
-    con = get_connection()
-
-    try:
+    with get_connection() as con:
         result = con.execute(f"""
             SELECT
                 AVG({column_name}) AS mean,
@@ -260,32 +243,32 @@ def get_basic_stats(table_name: str, column_name: str) -> list[tuple[str, str]]:
             FROM {table_name}
         """).fetchall()
 
-        return [(row[0], row[1]) for row in result]
-    
-    finally:        
-        con.close()
+    return result
 
-# This function return all the characteristics (column names) of the "objects" view in the database
-def get_all_characteristics():
-    con = get_connection()
+def get_all_characteristics() -> list[str]:
+    """
+    Return all column names from the objects view in the database.
+    """
 
-    try:
+    with get_connection() as con:
         result = con.execute("""
             SELECT column_name
             FROM information_schema.columns
             WHERE table_name = 'objects'
         """).fetchall()
 
-        return [row[0] for row in result]
-    
-    finally:        
-        con.close()
+    return [row[0] for row in result]
 
-# This function check if a value exists in a given column of the "objects" view
-def value_exists_objects(column_name, value) -> bool:
-    con = get_connection()
+def value_exists_objects(
+        column_name: str,
+        value: str
+) -> bool:
+    """
+    Check wether a value exists in a given column of the objects view
+    in the database.
+    """
 
-    try:
+    with get_connection() as con:
         result = con.execute(f"""
             SELECT 1
             FROM objects
@@ -293,15 +276,16 @@ def value_exists_objects(column_name, value) -> bool:
             LIMIT 1
         """, [value]).fetchone()
 
-        return result is not None
+    return result is not None
+
+def main() -> None:
+    """
+    Run a simple test query.
+    """
+
+    timeline_distribution = get_timeline_stages_distribution()
     
-    finally:        
-        con.close()
-
-
-def main():
-    list = get_timeline_stages_distribution()
-    print(list)
+    print(timeline_distribution)
 
 if __name__ == "__main__":
     main()

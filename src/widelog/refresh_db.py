@@ -3,7 +3,7 @@ from __future__ import annotations
 
 
 # Local imports
-from widelog.ingest import ingest_csv_to_parquet
+from widelog.csv_to_parquet import ingest_csv_to_parquet
 from widelog.tests_index import ingest_tests_index
 from widelog.build_db import build_db
 from widelog.source_snapshot import build_source_snapshot, save_snapshot

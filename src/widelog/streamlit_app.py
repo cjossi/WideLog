@@ -18,7 +18,7 @@ from widelog.query_service import (
     snr_exists,
     get_available_stages,
     get_available_test_types,
-    get_imu_files,
+    #get_imu_files,
     get_total_patients,
     get_total_patients_with_imu,
     get_timeline_stages_distribution,
@@ -360,12 +360,12 @@ def csv_imu_exporter():
         type_arg = "" if test_type == "all" else test_type
 
         # Display the IMU files matching the criteria
-        imu_df = get_imu_files(snr_id, stage_arg, type_arg)
+        #imu_df = get_imu_files(snr_id, stage_arg, type_arg)
 
-        df = pd.DataFrame(imu_df, columns=["snr_id", "timeline_stage", "test_type", "file_path"])
+        #df = pd.DataFrame(imu_df, columns=["snr_id", "timeline_stage", "test_type", "file_path"])
 
-        st.subheader("Matching IMU files")
-        df = pd.DataFrame(imu_df, columns=["file_path", "timeline_stage", "test_type", "snr_id"])
+        #st.subheader("Matching IMU files")
+        #df = pd.DataFrame(imu_df, columns=["file_path", "timeline_stage", "test_type", "snr_id"])
 
         try:
             with st.spinner("Exporting..."):
