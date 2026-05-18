@@ -20,3 +20,10 @@ STAGE_ORDER = {
     "FU1": 6,
     "FU2": 7
 }
+
+GAIT_ONLY_STAGES = [
+    "w3",
+    "w6",
+    "w8",
+]
+

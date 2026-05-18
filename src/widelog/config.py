@@ -5,6 +5,7 @@ from pathlib import Path
 # Third-party imports
 import yaml
 
+
 @dataclass(frozen=True)
 class Config:
     """
